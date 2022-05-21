@@ -17,7 +17,7 @@
 import * as handdetection from '@tensorflow-models/hand-pose-detection';
 import * as tf from '@tensorflow/tfjs-core';
 
-import * as params from './shared/params';
+import * as params from '../shared/params';
 
 /**
  * Records each flag's default value under the runtime environment and is a
@@ -60,7 +60,7 @@ export async function setupDatGui(urlParams) {
       }
       if (maxNumHands == null || maxNumHands < 1 ) {
         // Nulify invalid value.
-        maxNumHands = 2;
+        maxNumHands = 1;
       }
       break;
     default:
@@ -136,7 +136,7 @@ function showModelConfigs(folderController, type, maxNumHands) {
 function addMediaPipeHandsControllers(modelConfigFolder, type, maxNumHands) {
   params.STATE.modelConfig = {...params.MEDIAPIPE_HANDS_CONFIG};
   params.STATE.modelConfig.type = type != null ? type : 'full';
-  params.STATE.modelConfig.maxNumHands = maxNumHands != null ? maxNumHands : 2;
+  params.STATE.modelConfig.maxNumHands = maxNumHands != null ? maxNumHands : 1;
 
   const typeController = modelConfigFolder.add(
       params.STATE.modelConfig, 'type', ['lite', 'full']);

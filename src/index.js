@@ -28,9 +28,9 @@ import * as handdetection from '@tensorflow-models/hand-pose-detection';
 
 import {Camera} from './camera';
 import {setupDatGui} from './option_panel';
-import {STATE} from './shared/params';
-import {setupStats} from './shared/stats_panel';
-import {setBackendAndEnvFlags} from './shared/util';
+import {STATE} from '../shared/params';
+import {setupStats} from '../shared/stats_panel';
+import {setBackendAndEnvFlags} from '../shared/util';
 
 let detector, camera, stats;
 let startInferenceTime, numInferences = 0;
@@ -111,6 +111,34 @@ function endEstimateHandsStats() {
   }
 }
 
+var predictingProcess = false;
+var predictingButton = document.getElementById("predicting-button");
+
+predictingButton.addEventListener("click", function(e) {
+    if (predictingProcess) {
+      console.log("Stop pred");
+      predictingProcess = false; 
+    }
+    else {
+      console.log("Start pred");
+      predictingProcess = true;
+    }
+});
+
+function processHandsData(hands) {
+  // console.log(hands);
+  if (hands[0] != undefined && hands[0].handedness != undefined) {
+    // Wirst 2D info
+    console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
+    
+    // 3D info special points of hand
+    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[0].name + " " + hands[0].keypoints3D[0].x + " " + hands[0].keypoints3D[0].y+ " " + hands[0].keypoints3D[0].z)
+    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[5].name + " " + hands[0].keypoints3D[5].x + " " + hands[0].keypoints3D[5].y+ " " + hands[0].keypoints3D[5].z)
+    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[17].name + " " + hands[0].keypoints3D[17].x + " " + hands[0].keypoints3D[17].y+ " " + hands[0].keypoints3D[17].z)
+    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[12].name + " " + hands[0].keypoints3D[12].x + " " + hands[0].keypoints3D[12].y+ " " + hands[0].keypoints3D[12].z)
+  }
+}
+
 async function renderResult() {
   if (camera.video.readyState < 2) {
     await new Promise((resolve) => {
@@ -133,7 +161,15 @@ async function renderResult() {
     try {
       hands = await detector.estimateHands(
           camera.video,
-          {flipHorizontal: false});
+          {
+            flipHorizontal: false
+          }
+        );
+
+      if (predictingProcess) {
+        processHandsData(hands);
+      }
+
     } catch (error) {
       detector.dispose();
       detector = null;
@@ -166,6 +202,9 @@ async function renderPrediction() {
 async function app() {
   // Gui content will change depending on which model is in the query string.
   const urlParams = new URLSearchParams(window.location.search);
+
+  urlParams.append('model', 'mediapipe_hands');
+
   if (!urlParams.has('model')) {
     alert('Cannot find model in the query string.');
     return;
