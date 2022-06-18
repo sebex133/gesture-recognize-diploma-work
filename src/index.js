@@ -113,15 +113,20 @@ function endEstimateHandsStats() {
 
 var predictingProcess = false;
 var predictingButton = document.getElementById("predicting-button");
+var pointsDatasetArr = [];
 
 predictingButton.addEventListener("click", function(e) {
     if (predictingProcess) {
       console.log("Stop pred");
-      predictingProcess = false; 
+      predictingProcess = false;
+
+      localStorage.setItem('pointsDatasetJson', JSON.stringify(pointsDatasetArr));
     }
     else {
       console.log("Start pred");
       predictingProcess = true;
+
+      pointsDatasetArr = [];
     }
 });
 
@@ -129,8 +134,8 @@ function processHandsData(hands) {
   // console.log(hands);
   if (hands[0] != undefined && hands[0].handedness != undefined) {
     // Wirst 2D info
-    console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
-    
+    // console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
+    pointsDatasetArr.push(hands[0].keypoints3D);
     // 3D info special points of hand
     // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[0].name + " " + hands[0].keypoints3D[0].x + " " + hands[0].keypoints3D[0].y+ " " + hands[0].keypoints3D[0].z)
     // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[5].name + " " + hands[0].keypoints3D[5].x + " " + hands[0].keypoints3D[5].y+ " " + hands[0].keypoints3D[5].z)
