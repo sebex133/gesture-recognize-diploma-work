@@ -16,6 +16,8 @@
  */
 
 import '@tensorflow/tfjs-backend-webgl';
+import * as tf from '@tensorflow/tfjs-core';
+
 import * as mpHands from '@mediapipe/hands';
 
 import * as tfjsWasm from '@tensorflow/tfjs-backend-wasm';
@@ -111,20 +113,20 @@ function endEstimateHandsStats() {
   }
 }
 
-var predictingProcess = false;
-var predictingButton = document.getElementById("predicting-button");
+var datasetProcess = false;
+var datasetButton = document.getElementById("dataset-button");
 var pointsDatasetArr = [];
 
-predictingButton.addEventListener("click", function(e) {
-    if (predictingProcess) {
-      console.log("Stop pred");
-      predictingProcess = false;
+datasetButton.addEventListener("click", function(e) {
+    if (datasetProcess) {
+      console.log("Stop dataset");
+      datasetProcess = false;
 
       localStorage.setItem('pointsDatasetJson', JSON.stringify(pointsDatasetArr));
     }
     else {
-      console.log("Start pred");
-      predictingProcess = true;
+      console.log("Start dataset");
+      datasetProcess = true;
 
       pointsDatasetArr = [];
     }
@@ -171,7 +173,7 @@ async function renderResult() {
           }
         );
 
-      if (predictingProcess) {
+      if (datasetProcess) {
         processHandsData(hands);
       }
 
@@ -229,3 +231,42 @@ async function app() {
 };
 
 app();
+
+// Create model and Tensor
+var modelButton = document.getElementById("model-button");
+
+modelButton.addEventListener("click", function(e) {
+  console.log("Start model");
+  const points = JSON.parse(
+      localStorage.getItem('pointsDatasetJson')
+  );
+  const handDataForTensor = [];
+
+  for(let i = 0; i < points.length; i++) {
+    let oneHandData = [];
+    for(let j = 0; j < points[i].length; j++) {
+      oneHandData.push([
+          points[i][j].x,
+          points[i][j].y,
+          points[i][j].z
+      ]);
+    }
+    handDataForTensor.push(oneHandData);
+  }
+
+  localStorage.setItem('tensorData', JSON.stringify(handDataForTensor));
+  console.log("Stop model");
+});
+
+var trainButton = document.getElementById("train-button");
+trainButton.addEventListener("click", function(e) {
+  console.log("Start train");
+  const tensorData = JSON.parse(
+      localStorage.getItem('tensorData')
+  );
+
+  const tensorHand = tf.tensor(tensorData[0]);
+
+  console.log("Stop train");
+
+});
