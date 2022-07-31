@@ -16,10 +16,8 @@
  */
 
 import '@tensorflow/tfjs-backend-webgl';
-import * as tf from '@tensorflow/tfjs-core';
 
 import * as tfjs from '@tensorflow/tfjs';
-import * as tfnode from '@tensorflow/tfjs-node';
 
 import * as mpHands from '@mediapipe/hands';
 
@@ -217,14 +215,13 @@ async function renderPrediction() {
 
   rafId = requestAnimationFrame(renderPrediction);
 };
-
+var model = [];
 async function app() {
   // Gui content will change depending on which model is in the query string.
   const urlParams = new URLSearchParams(window.location.search);
 
-  // Load the Tensorflow model.=
-  const modelHandler = tfnode.io.fileSystem("./trained_model/model.json");
-  const model = await tfjs.loadLayersModel(modelHandler);
+  // Load the Tensorflow model.
+  model = await tfjs.loadLayersModel("trained_model/model.json");
 
   urlParams.append('model', 'mediapipe_hands');
 
@@ -301,7 +298,7 @@ modelButton.addEventListener("click", function(e) {
 
 // Realtime prediction
 var realtimePredictProcess = false;
-var realtimePredictButton = document.getElementById("dataset-button");
+var realtimePredictButton = document.getElementById("predict-button");
 
 realtimePredictButton.addEventListener("click", function(e) {
     if (realtimePredictProcess) {
@@ -315,17 +312,49 @@ realtimePredictButton.addEventListener("click", function(e) {
 });
 
 function predictGesture(hands) {
-  keypoints3d = hands[0].keypoints3D;
+  const gesturesMap = {
+    0: "Non gesture",
+    1: "Victoria",
+    2: "OK"
+  };
+
+  if (hands.length === 0 || hands[0].keypoints3D == undefined) {
+    document.getElementById("predict-result").innerHTML = gesturesMap[0];
+    return;
+  }
+
+  const keypoints3d = hands[0].keypoints3D;
   const oneHandData = [];
 
   for(let i = 0; i < keypoints3d.length; i++) {
     oneHandData.push([
-      points[i].x,
-      points[i].y,
-      points[i].z
+      keypoints3d[i].x,
+      keypoints3d[i].y,
+      keypoints3d[i].z
     ]);
   }
+  const tensor = tfjs.tensor([oneHandData]);
+  const prediction = model.predict(tensor);
+  const predictionArr = prediction.arraySync()[0];
 
-  const prediction = model.predict([oneHandData]);
-  console.log(prediction)
+  let predIndex = 0;
+  let predMax = predictionArr[0];
+  for(let i=1; i < predictionArr.length; i++) {
+    if (predictionArr[i] > predMax) {
+      predMax = predictionArr[i];
+      predIndex = i;
+    }
+  }
+
+  // Select non-gesture for not-well recognized gestures.
+  if (predMax < 1) {
+    predIndex = 0;
+  }
+
+  console.log('___');
+  console.log(predictionArr[0]);
+  console.log(predictionArr[1]);
+  console.log(predictionArr[2]);
+
+  document.getElementById("predict-result").innerHTML = gesturesMap[predIndex];
 }
