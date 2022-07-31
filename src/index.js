@@ -18,6 +18,9 @@
 import '@tensorflow/tfjs-backend-webgl';
 import * as tf from '@tensorflow/tfjs-core';
 
+import * as tfjs from '@tensorflow/tfjs';
+import * as tfnode from '@tensorflow/tfjs-node';
+
 import * as mpHands from '@mediapipe/hands';
 
 import * as tfjsWasm from '@tensorflow/tfjs-backend-wasm';
@@ -120,12 +123,14 @@ var pointsDatasetArr = [];
 datasetButton.addEventListener("click", function(e) {
     if (datasetProcess) {
       console.log("Stop dataset");
+      e.target.innerHTML = "START DATASET SNAPSHOTING"
       datasetProcess = false;
 
       localStorage.setItem('pointsDatasetJson', JSON.stringify(pointsDatasetArr));
     }
     else {
       console.log("Start dataset");
+      e.target.innerHTML = "SNAPPING DATASET... (click to stop)"
       datasetProcess = true;
 
       pointsDatasetArr = [];
@@ -135,10 +140,12 @@ datasetButton.addEventListener("click", function(e) {
 function processHandsData(hands) {
   // console.log(hands);
   if (hands[0] != undefined && hands[0].handedness != undefined) {
-    // Wirst 2D info
-    // console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
     pointsDatasetArr.push(hands[0].keypoints3D);
+
+    // Wrist 2D info
+    // console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
     // 3D info special points of hand
+
     // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[0].name + " " + hands[0].keypoints3D[0].x + " " + hands[0].keypoints3D[0].y+ " " + hands[0].keypoints3D[0].z)
     // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[5].name + " " + hands[0].keypoints3D[5].x + " " + hands[0].keypoints3D[5].y+ " " + hands[0].keypoints3D[5].z)
     // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[17].name + " " + hands[0].keypoints3D[17].x + " " + hands[0].keypoints3D[17].y+ " " + hands[0].keypoints3D[17].z)
@@ -167,14 +174,19 @@ async function renderResult() {
     // contain a model that doesn't provide the expected output.
     try {
       hands = await detector.estimateHands(
-          camera.video,
-          {
-            flipHorizontal: false
-          }
-        );
+        camera.video,
+        {
+          flipHorizontal: false
+        }
+      );
 
+      // Collect data to dataset process.
       if (datasetProcess) {
         processHandsData(hands);
+      }
+
+      if (realtimePredictProcess) {
+        predictGesture(hands);
       }
 
     } catch (error) {
@@ -210,6 +222,10 @@ async function app() {
   // Gui content will change depending on which model is in the query string.
   const urlParams = new URLSearchParams(window.location.search);
 
+  // Load the Tensorflow model.=
+  const modelHandler = tfnode.io.fileSystem("./trained_model/model.json");
+  const model = await tfjs.loadLayersModel(modelHandler);
+
   urlParams.append('model', 'mediapipe_hands');
 
   if (!urlParams.has('model')) {
@@ -232,11 +248,26 @@ async function app() {
 
 app();
 
-// Create model and Tensor
-var modelButton = document.getElementById("model-button");
+function downloadFile(content, fileName, contentType) {
+  var a = document.createElement("a");
+  var file = new Blob([content], {type: contentType});
+  a.href = URL.createObjectURL(file);
+  a.download = fileName;
+  a.click();
+}
 
+// Preapre and download JSON data for Tensor model
+var modelNameTextbox = document.getElementById("model-name-textbox");
+var modelName = '';
+modelNameTextbox.addEventListener("change", function(e) {
+  modelName = modelNameTextbox.value;
+});
+
+var modelButton = document.getElementById("model-button");
 modelButton.addEventListener("click", function(e) {
   console.log("Start model");
+  e.target.innerHTML = "PREPARING DATA FOR MODEL DOWNLOAD...";
+
   const points = JSON.parse(
       localStorage.getItem('pointsDatasetJson')
   );
@@ -246,27 +277,55 @@ modelButton.addEventListener("click", function(e) {
     let oneHandData = [];
     for(let j = 0; j < points[i].length; j++) {
       oneHandData.push([
-          points[i][j].x,
-          points[i][j].y,
-          points[i][j].z
+        points[i][j].x,
+        points[i][j].y,
+        points[i][j].z
       ]);
     }
     handDataForTensor.push(oneHandData);
   }
 
-  localStorage.setItem('tensorData', JSON.stringify(handDataForTensor));
+  const jsonData = JSON.stringify(handDataForTensor);
+  localStorage.setItem('tensorData', jsonData);
+
+  console.log("Model name: " + modelName);
+  if (modelName) {
+    console.log("Downloading start...")
+    downloadFile(jsonData, modelName + '.json', 'application/json');
+    console.log("Downloading END")
+  }
+
+  e.target.innerHTML = "DOWNLOAD DATA FOR MODEL";
   console.log("Stop model");
 });
 
-var trainButton = document.getElementById("train-button");
-trainButton.addEventListener("click", function(e) {
-  console.log("Start train");
-  const tensorData = JSON.parse(
-      localStorage.getItem('tensorData')
-  );
+// Realtime prediction
+var realtimePredictProcess = false;
+var realtimePredictButton = document.getElementById("dataset-button");
 
-  const tensorHand = tf.tensor(tensorData[0]);
-
-  console.log("Stop train");
-
+realtimePredictButton.addEventListener("click", function(e) {
+    if (realtimePredictProcess) {
+      e.target.innerHTML = "START PREDICTING"
+      realtimePredictProcess = false;
+    }
+    else {
+      e.target.innerHTML = "PREDICTING NOW... (click to stop)"
+      realtimePredictProcess = true;
+    }
 });
+
+function predictGesture(hands) {
+  keypoints3d = hands[0].keypoints3D;
+  const oneHandData = [];
+
+  for(let i = 0; i < keypoints3d.length; i++) {
+    oneHandData.push([
+      points[i].x,
+      points[i].y,
+      points[i].z
+    ]);
+  }
+
+  const prediction = model.predict([oneHandData]);
+  console.log(prediction)
+}
