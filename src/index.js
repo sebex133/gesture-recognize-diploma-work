@@ -128,27 +128,33 @@ datasetButton.addEventListener("click", function(e) {
     }
     else {
       console.log("Start dataset");
-      e.target.innerHTML = "SNAPPING DATASET... (click to stop)"
-      datasetProcess = true;
+      e.target.innerHTML = "Creating dataset... (click to stop)"
 
+      localStorage.setItem('pointsDatasetJson', '');
       pointsDatasetArr = [];
+      datasetProcess = true;
     }
 });
 
+var datasetCounter = document.getElementById("dataset-counter");
 function processHandsData(hands) {
-  // console.log(hands);
   if (hands[0] != undefined && hands[0].handedness != undefined) {
     pointsDatasetArr.push(hands[0].keypoints3D);
+    datasetCounter.innerHTML = pointsDatasetArr.length + " items collected for dataset";
 
-    // Wrist 2D info
-    // console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
-    // 3D info special points of hand
-
-    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[0].name + " " + hands[0].keypoints3D[0].x + " " + hands[0].keypoints3D[0].y+ " " + hands[0].keypoints3D[0].z)
-    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[5].name + " " + hands[0].keypoints3D[5].x + " " + hands[0].keypoints3D[5].y+ " " + hands[0].keypoints3D[5].z)
-    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[17].name + " " + hands[0].keypoints3D[17].x + " " + hands[0].keypoints3D[17].y+ " " + hands[0].keypoints3D[17].z)
-    // console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[12].name + " " + hands[0].keypoints3D[12].x + " " + hands[0].keypoints3D[12].y+ " " + hands[0].keypoints3D[12].z)
+    // logHandsInfoInConsole(hands);
   }
+}
+
+function logHandsInfoInConsole(hands) {
+  // Wrist 2D info
+  console.log(hands[0].handedness + " " + hands[0].keypoints[0].name + " " + hands[0].keypoints[0].x + " " + hands[0].keypoints[0].y)
+
+  // 3D info special points of hand
+  console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[0].name + " " + hands[0].keypoints3D[0].x + " " + hands[0].keypoints3D[0].y+ " " + hands[0].keypoints3D[0].z)
+  console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[5].name + " " + hands[0].keypoints3D[5].x + " " + hands[0].keypoints3D[5].y+ " " + hands[0].keypoints3D[5].z)
+  console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[17].name + " " + hands[0].keypoints3D[17].x + " " + hands[0].keypoints3D[17].y+ " " + hands[0].keypoints3D[17].z)
+  console.log("3d " + hands[0].handedness + " " + hands[0].keypoints3D[12].name + " " + hands[0].keypoints3D[12].x + " " + hands[0].keypoints3D[12].y+ " " + hands[0].keypoints3D[12].z)
 }
 
 async function renderResult() {
@@ -178,11 +184,12 @@ async function renderResult() {
         }
       );
 
-      // Collect data to dataset process.
+      // Collect data for dataset JSON file.
       if (datasetProcess) {
         processHandsData(hands);
       }
 
+      // Handle data for gesture recognition.
       if (realtimePredictProcess) {
         predictGesture(hands);
       }
@@ -260,14 +267,23 @@ modelNameTextbox.addEventListener("change", function(e) {
   modelName = modelNameTextbox.value;
 });
 
-var modelButton = document.getElementById("model-button");
-modelButton.addEventListener("click", function(e) {
-  console.log("Start model");
+var downloadButton = document.getElementById("download-button");
+downloadButton.addEventListener("click", function(e) {
+  const pointsData = localStorage.getItem('pointsDatasetJson');
+  if (pointsData === '') {
+    console.log("No data for download - please start and stop dataset creating.")
+    return;
+  }
+
+  if (!modelName) {
+    console.log("No model name - please provide model name before download")
+    return;
+  }
+
+  console.log("Download start");
   e.target.innerHTML = "PREPARING DATA FOR MODEL DOWNLOAD...";
 
-  const points = JSON.parse(
-      localStorage.getItem('pointsDatasetJson')
-  );
+  const points = JSON.parse(pointsData)  ;
   const handDataForTensor = [];
 
   for(let i = 0; i < points.length; i++) {
@@ -285,15 +301,11 @@ modelButton.addEventListener("click", function(e) {
   const jsonData = JSON.stringify(handDataForTensor);
   localStorage.setItem('tensorData', jsonData);
 
-  console.log("Model name: " + modelName);
-  if (modelName) {
-    console.log("Downloading start...")
-    downloadFile(jsonData, modelName + '.json', 'application/json');
-    console.log("Downloading END")
-  }
+  console.log("Model: " + modelName + ' - downloading...');
+  downloadFile(jsonData, modelName + '.json', 'application/json');
 
-  e.target.innerHTML = "DOWNLOAD DATA FOR MODEL";
-  console.log("Stop model");
+  e.target.innerHTML = "DOWNLOAD DATASET";
+  console.log("Download end");
 });
 
 // Realtime prediction
@@ -302,15 +314,16 @@ var realtimePredictButton = document.getElementById("predict-button");
 
 realtimePredictButton.addEventListener("click", function(e) {
     if (realtimePredictProcess) {
-      e.target.innerHTML = "START PREDICTING"
+      e.target.innerHTML = "START GESTURE RECOGNITION"
       realtimePredictProcess = false;
     }
     else {
-      e.target.innerHTML = "PREDICTING NOW... (click to stop)"
+      e.target.innerHTML = "GESTURE RECOGNIZING ... (click to stop)"
       realtimePredictProcess = true;
     }
 });
 
+var predictResult = document.getElementById("predict-result");
 function predictGesture(hands) {
   const gesturesMap = {
     0: "Non gesture",
@@ -319,7 +332,7 @@ function predictGesture(hands) {
   };
 
   if (hands.length === 0 || hands[0].keypoints3D == undefined) {
-    document.getElementById("predict-result").innerHTML = gesturesMap[0];
+    predictResult.innerHTML = gesturesMap[0];
     return;
   }
 
@@ -351,10 +364,5 @@ function predictGesture(hands) {
     predIndex = 0;
   }
 
-  console.log('___');
-  console.log(predictionArr[0]);
-  console.log(predictionArr[1]);
-  console.log(predictionArr[2]);
-
-  document.getElementById("predict-result").innerHTML = gesturesMap[predIndex];
+  predictResult.innerHTML = gesturesMap[predIndex];
 }
